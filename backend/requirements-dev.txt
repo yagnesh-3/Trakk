@@ -1,0 +1,6 @@
+# Development and test tooling. Install with: pip install -r requirements-dev.txt
+-r requirements.txt
+
+pytest>=8.3,<10.0
+httpx>=0.27,<1.0
+ruff>=0.6,<1.0

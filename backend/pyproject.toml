@@ -1,0 +1,22 @@
+[project]
+name = "project-tracker-api"
+version = "0.1.0"
+description = "Project Tracker: multi-project kanban issue tracker API"
+requires-python = ">=3.11"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+extend-exclude = ["migrations/versions"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "C4", "RUF"]
+ignore = ["B008"]  # FastAPI Depends() in argument defaults
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra -q --strict-markers"
+filterwarnings = [
+    # Upstream: Starlette's TestClient still uses httpx. Not actionable here.
+    "ignore:Using `httpx` with `starlette.testclient` is deprecated",
+]

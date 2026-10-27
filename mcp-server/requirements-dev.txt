@@ -1,0 +1,5 @@
+# Tests run the tools against the real backend in-process.
+-r requirements.txt
+-r ../backend/requirements.txt
+pytest>=8.3,<10.0
+ruff>=0.6,<1.0

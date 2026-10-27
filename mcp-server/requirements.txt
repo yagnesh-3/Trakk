@@ -1,0 +1,3 @@
+# Runtime dependencies of the MCP server.
+mcp>=2.3,<3.0
+httpx>=0.27,<1.0

@@ -36,6 +36,14 @@ def _user_from_token(db: Session, raw: str) -> User:
     return user
 
 
+def _origin_allowed(origin: str, request: Request) -> bool:
+    if origin in get_settings().allowed_origins:
+        return True
+    # Same-origin: the web app is served by this API (production). Browsers set Host themselves,
+    # so another site cannot fake it.
+    return origin.split("://", 1)[-1] == request.headers.get("host")
+
+
 def _user_from_cookie(request: Request, db: Session) -> User:
     settings = get_settings()
     raw = request.cookies.get(settings.cookie_name)
@@ -49,7 +57,7 @@ def _user_from_cookie(request: Request, db: Session) -> User:
     # Cookie auth is browser auth: reject cross-site writes (CSRF defence).
     if request.method in UNSAFE_METHODS:
         origin = request.headers.get("origin")
-        if origin and origin.rstrip("/") not in settings.allowed_origins:
+        if origin and not _origin_allowed(origin.rstrip("/"), request):
             raise HTTPException(status.HTTP_403_FORBIDDEN, "Origin not allowed")
     return user
 

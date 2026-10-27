@@ -1,6 +1,7 @@
 """Command-line tasks.
 
     python -m app.cli create-admin --email you@company.com --name "Your Name"
+    python -m app.cli ensure-admin      # from ADMIN_EMAIL / ADMIN_PASSWORD, run at deploy start
     python -m app.cli seed-demo
 """
 
@@ -12,6 +13,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import ProjectAccess, resolve_project_access
+from app.core.config import get_settings
 from app.db.session import SessionLocal
 from app.models import Issue, Project, User
 from app.models.enums import IssueType, LinkType, Priority, ProjectRole, SystemRole
@@ -29,6 +31,27 @@ def create_admin(db: Session, email: str, name: str, password: str) -> User:
         UserCreate(email=email, name=name, password=password, system_role=SystemRole.admin),
         must_change_password=False,
     )
+
+
+def ensure_admin(db: Session) -> str:
+    """Create the admin from ADMIN_EMAIL / ADMIN_PASSWORD unless that user already exists.
+
+    An existing user is never changed, so a password set in the app survives redeploys.
+    """
+    settings = get_settings()
+    if not settings.admin_email:
+        return "ADMIN_EMAIL is not set; no admin created"
+    if users.get_by_email(db, settings.admin_email):
+        return f"Admin {settings.admin_email} already exists"
+    if len(settings.admin_password) < PASSWORD_MIN:
+        raise ValueError(f"ADMIN_PASSWORD must be at least {PASSWORD_MIN} characters")
+    user = users.create_user(
+        db,
+        UserCreate(email=settings.admin_email, name=settings.admin_name,
+                   password=settings.admin_password, system_role=SystemRole.admin),
+        must_change_password=True,
+    )
+    return f"Created admin {user.email}; they must change the password on first login"
 
 
 def _demo_user(db: Session, email: str, name: str, role: SystemRole) -> User:
@@ -88,6 +111,7 @@ def main(argv: list[str] | None = None) -> int:
     admin.add_argument("--email", required=True)
     admin.add_argument("--name", required=True)
     admin.add_argument("--password", help="prompted for when omitted")
+    sub.add_parser("ensure-admin", help="create the ADMIN_EMAIL admin if missing")
     sub.add_parser("seed-demo", help="add sample users, projects and issues")
     args = parser.parse_args(argv)
 
@@ -99,6 +123,12 @@ def main(argv: list[str] | None = None) -> int:
                 return 1
             user = create_admin(db, args.email, args.name, password)
             print(f"Created admin {user.email}")
+        elif args.command == "ensure-admin":
+            try:
+                print(ensure_admin(db))
+            except ValueError as exc:
+                print(exc, file=sys.stderr)
+                return 1
         elif args.command == "seed-demo":
             seed_demo(db)
     return 0

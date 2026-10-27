@@ -1,0 +1,29 @@
+# Render Blueprint: Dashboard → New → Blueprint → pick this repo.
+# Render asks for the values marked `sync: false` when the Blueprint is first applied.
+services:
+  - type: web
+    name: project-tracker
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: starter            # "free" also works, but sleeps after 15 minutes idle
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: project-tracker-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: COOKIE_SECURE
+        value: "true"
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_NAME
+        sync: false
+      - key: ADMIN_PASSWORD     # initial password only; the admin must change it at first login
+        sync: false
+
+databases:
+  - name: project-tracker-db
+    plan: basic-256mb        # Render's free Postgres is deleted after 30 days
+    databaseName: tracker

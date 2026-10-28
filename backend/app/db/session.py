@@ -19,7 +19,8 @@ def make_engine(url: str) -> Engine:
             cursor.close()
 
         return engine
-    return create_engine(url, pool_pre_ping=True)
+    # Fail fast instead of hanging when the server is unreachable.
+    return create_engine(url, pool_pre_ping=True, connect_args={"connect_timeout": 10})
 
 
 engine = make_engine(get_settings().database_url)

@@ -1,6 +1,7 @@
 """Command-line tasks.
 
     python -m app.cli create-admin --email you@company.com --name "Your Name"
+    python -m app.cli wait-db           # retry until the database accepts connections, run at deploy start
     python -m app.cli ensure-admin      # from ADMIN_EMAIL / ADMIN_PASSWORD, run at deploy start
     python -m app.cli seed-demo
 """
@@ -8,13 +9,15 @@
 import argparse
 import getpass
 import sys
+import time
 
-from sqlalchemy import select
+from sqlalchemy import select, text
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
 from app.api.deps import ProjectAccess, resolve_project_access
 from app.core.config import get_settings
-from app.db.session import SessionLocal
+from app.db.session import SessionLocal, engine
 from app.models import Issue, Project, User
 from app.models.enums import IssueType, LinkType, Priority, ProjectRole, SystemRole
 from app.schemas.issue import IssueCreate
@@ -23,6 +26,22 @@ from app.schemas.user import PASSWORD_MIN, UserCreate
 from app.services import issues, projects, users
 
 DEMO_PASSWORD = "demo-password-123"
+
+
+def wait_for_db(timeout: float = 120, interval: float = 3) -> bool:
+    """Retry until the database accepts connections; a freshly provisioned one can lag the app."""
+    deadline = time.monotonic() + timeout
+    while True:
+        try:
+            with engine.connect() as conn:
+                conn.execute(text("SELECT 1"))
+            return True
+        except OperationalError as exc:
+            if time.monotonic() >= deadline:
+                print(f"Database still unreachable after {timeout:.0f}s: {exc.orig}", file=sys.stderr)
+                return False
+            print(f"Waiting for database... ({exc.orig})", file=sys.stderr)
+            time.sleep(interval)
 
 
 def create_admin(db: Session, email: str, name: str, password: str) -> User:
@@ -111,9 +130,13 @@ def main(argv: list[str] | None = None) -> int:
     admin.add_argument("--email", required=True)
     admin.add_argument("--name", required=True)
     admin.add_argument("--password", help="prompted for when omitted")
+    sub.add_parser("wait-db", help="wait until the database accepts connections")
     sub.add_parser("ensure-admin", help="create the ADMIN_EMAIL admin if missing")
     sub.add_parser("seed-demo", help="add sample users, projects and issues")
     args = parser.parse_args(argv)
+
+    if args.command == "wait-db":
+        return 0 if wait_for_db() else 1
 
     with SessionLocal() as db:
         if args.command == "create-admin":

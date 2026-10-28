@@ -17,7 +17,8 @@ COPY --from=web /web/dist /app/frontend/dist
 RUN useradd --create-home tracker
 USER tracker
 ENV ENVIRONMENT=production STATIC_DIR=/app/frontend/dist
-# Migrate, create the first admin if missing, then serve. Hosts set PORT; 8000 otherwise.
-CMD alembic upgrade head \
+# Wait for the database, migrate, create the first admin if missing, then serve. Hosts set PORT; 8000 otherwise.
+CMD python -m app.cli wait-db \
+    && alembic upgrade head \
     && python -m app.cli ensure-admin \
     && exec uvicorn app.main:app --host 0.0.0.0 --port "${PORT:-8000}" --proxy-headers --forwarded-allow-ips="*"

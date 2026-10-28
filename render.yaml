@@ -5,7 +5,7 @@ services:
     name: project-tracker
     runtime: docker
     dockerfilePath: ./Dockerfile
-    plan: starter            # "free" also works, but sleeps after 15 minutes idle
+    plan: free            # "free" also works, but sleeps after 15 minutes idle
     healthCheckPath: /health
     envVars:
       - key: DATABASE_URL
